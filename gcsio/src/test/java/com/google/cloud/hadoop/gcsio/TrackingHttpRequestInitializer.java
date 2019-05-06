@@ -35,10 +35,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public class TrackingHttpRequestInitializer implements HttpRequestInitializer {
 
   private static final String UPLOAD_REQUEST_FORMAT =
-      "POST:https://www.googleapis.com/upload/storage/v1/b/%s/o?ifGenerationMatch=0&uploadType=multipart:%s";
+      "POST:https://www.googleapis.com/upload/storage/v1/b/%s/o"
+          + "?ifGenerationMatch=0&uploadType=multipart:%s";
 
   private static final String UPDATE_METADATA_REQUEST_FORMAT =
       "POST:https://www.googleapis.com/storage/v1/b/%s/o/%s?ifMetagenerationMatch=%d";
+
+  private static final String DELETE_REQUEST_FORMAT =
+      "DELETE:https://www.googleapis.com/storage/v1/b/%s/o/%s?ifMetagenerationMatch=%d";
 
   private static final String LIST_REQUEST_FORMAT =
       "GET:https://www.googleapis.com/storage/v1/b/%s/o"
@@ -91,12 +95,18 @@ public class TrackingHttpRequestInitializer implements HttpRequestInitializer {
   }
 
   public static String updateMetadataRequestString(
-      String bucketName, String object, int metaGenerationId) throws UnsupportedEncodingException {
+      String bucketName, String object, int metaGeneration) throws UnsupportedEncodingException {
     return String.format(
         UPDATE_METADATA_REQUEST_FORMAT,
         bucketName,
         URLEncoder.encode(object, UTF_8),
-        metaGenerationId);
+        metaGeneration);
+  }
+
+  public static String deleteRequestString(String bucketName, String object, long metaGeneration)
+      throws UnsupportedEncodingException {
+    return String.format(
+        DELETE_REQUEST_FORMAT, bucketName, URLEncoder.encode(object, UTF_8), metaGeneration);
   }
 
   public static String listRequestString(
