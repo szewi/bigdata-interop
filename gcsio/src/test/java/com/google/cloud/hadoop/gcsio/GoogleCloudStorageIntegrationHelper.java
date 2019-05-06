@@ -19,8 +19,13 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.MultipartContent;
+import com.google.api.client.http.json.JsonHttpContent;
+import com.google.api.services.storage.model.StorageObject;
 import com.google.cloud.hadoop.gcsio.integration.GoogleCloudStorageTestHelper.TestBucketHelper;
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -438,6 +443,21 @@ public abstract class GoogleCloudStorageIntegrationHelper {
    */
   public String getUniqueBucketName(String suffix) {
     return bucketHelper.getUniqueBucketName(suffix);
+  }
+
+  /** Convert request to string representation that could be used for assertions in tests */
+  public static String requestToString(HttpRequest request) {
+    String method = request.getRequestMethod();
+    String url = request.getUrl().toString();
+    String requestString = method + ":" + url;
+    if ("POST".equals(method) && url.contains("uploadType=multipart")) {
+      MultipartContent content = (MultipartContent) request.getContent();
+      JsonHttpContent jsonRequest =
+          (JsonHttpContent) Iterables.get(content.getParts(), 0).getContent();
+      String objectName = ((StorageObject) jsonRequest.getData()).getName();
+      requestString += ":" + objectName;
+    }
+    return requestString;
   }
 
   /** Creates a bucket and adds it to the list of buckets to delete at the end of tests. */
