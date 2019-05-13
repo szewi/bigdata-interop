@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 public abstract class GoogleCloudStorageIntegrationHelper {
 
   // Application name for OAuth.
-  static final String APP_NAME = "GCS-test";
+  public static final String APP_NAME = "GCS-test";
 
   // Prefix used for naming test buckets.
   private static final String TEST_BUCKET_NAME_PREFIX = "gcsio-test";
@@ -85,8 +85,7 @@ public abstract class GoogleCloudStorageIntegrationHelper {
    * @param text file contents
    * @return number of bytes written
    */
-  protected int writeTextFile(String bucketName, String objectName, String text)
-      throws IOException {
+  public int writeTextFile(String bucketName, String objectName, String text) throws IOException {
     byte[] textBytes = text.getBytes(UTF_8);
     return writeFile(bucketName, objectName, textBytes, 1);
   }
@@ -169,11 +168,8 @@ public abstract class GoogleCloudStorageIntegrationHelper {
     return writeFile(bucketName, objectName, buffer, numWrites, /* overwriteExisting= */ true);
   }
 
-  /**
-   * Helper which reads the entire file as a String.
-   */
-  protected String readTextFile(String bucketName, String objectName)
-      throws IOException {
+  /** Helper which reads the entire file as a String. */
+  public String readTextFile(String bucketName, String objectName) throws IOException {
     ByteBuffer readBuffer = ByteBuffer.allocate(1024);
     StringBuilder returnBuffer = new StringBuilder();
 
@@ -461,7 +457,7 @@ public abstract class GoogleCloudStorageIntegrationHelper {
   }
 
   /** Creates a bucket and adds it to the list of buckets to delete at the end of tests. */
-  String createUniqueBucket(String suffix) throws IOException {
+  public String createUniqueBucket(String suffix) throws IOException {
     String bucketName = getUniqueBucketName(suffix);
     mkdir(bucketName);
     return bucketName;

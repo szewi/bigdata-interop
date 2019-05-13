@@ -26,7 +26,7 @@ import java.util.List;
 public class GoogleCloudStorageFileSystemIntegrationHelper
     extends GoogleCloudStorageIntegrationHelper {
 
-  protected GoogleCloudStorageFileSystem gcsfs;
+  public final GoogleCloudStorageFileSystem gcsfs;
 
   public GoogleCloudStorageFileSystemIntegrationHelper(
       GoogleCloudStorageFileSystem gcsfs) {
