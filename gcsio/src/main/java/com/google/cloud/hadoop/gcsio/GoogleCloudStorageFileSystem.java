@@ -84,6 +84,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -454,15 +455,10 @@ public class GoogleCloudStorageFileSystem {
         // Schedule lock expiration update
         lockUpdateFuture =
             scheduleLockUpdate(
-                () ->
-                    renewLockOrExit(
-                        operationId,
-                        operationLockPath,
-                        l -> {
-                          DeleteOperation operation = GSON.fromJson(l, DeleteOperation.class);
-                          operation.setLockEpochSeconds(Instant.now().getEpochSecond());
-                          return GSON.toJson(operation);
-                        }));
+                operationId,
+                operationLockPath,
+                DeleteOperation.class,
+                (o, i) -> o.setLockEpochSeconds(i.getEpochSecond()));
 
         deleteInternal(itemsToDelete, bucketsToDelete);
         gcsAtomic.unlockPaths(operationId, resourceId);
@@ -946,15 +942,10 @@ public class GoogleCloudStorageFileSystem {
       // Schedule lock expiration update
       lockUpdateFuture =
           scheduleLockUpdate(
-              () ->
-                  renewLockOrExit(
-                      operationId,
-                      operationLockPath,
-                      l -> {
-                        RenameOperation operation = GSON.fromJson(l, RenameOperation.class);
-                        operation.setLockEpochSeconds(Instant.now().getEpochSecond());
-                        return GSON.toJson(operation);
-                      }));
+              operationId,
+              operationLockPath,
+              RenameOperation.class,
+              (o, i) -> o.setLockEpochSeconds(i.getEpochSecond()));
     }
 
     // Create the destination directory.
@@ -1871,9 +1862,21 @@ public class GoogleCloudStorageFileSystem {
 
   private ScheduledExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(1);
 
-  private Future<?> scheduleLockUpdate(Runnable updateFn) {
+  public <T> Future<?> scheduleLockUpdate(
+      String operationId, URI operationLockPath, Class<T> clazz, BiConsumer<T, Instant> renewFn) {
     return scheduledThreadPool.scheduleAtFixedRate(
-        updateFn, /* initialDelay= */ 1, /* period= */ 1, TimeUnit.MINUTES);
+        () ->
+            renewLockOrExit(
+                operationId,
+                operationLockPath,
+                l -> {
+                  T operation = GSON.fromJson(l, clazz);
+                  renewFn.accept(operation, Instant.now());
+                  return GSON.toJson(operation);
+                }),
+        /* initialDelay= */ 1,
+        /* period= */ 1,
+        TimeUnit.MINUTES);
   }
 
   public static class DeleteOperation {
