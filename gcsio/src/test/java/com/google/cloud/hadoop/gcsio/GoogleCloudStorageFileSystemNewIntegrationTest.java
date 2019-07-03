@@ -16,8 +16,11 @@
 
 package com.google.cloud.hadoop.gcsio;
 
+import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.copyRequestString;
+import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.deleteRequestString;
 import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.getRequestString;
 import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.listRequestString;
+import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.postRequestString;
 import static com.google.cloud.hadoop.gcsio.TrackingHttpRequestInitializer.uploadRequestString;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -32,7 +35,9 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -43,6 +48,8 @@ public class GoogleCloudStorageFileSystemNewIntegrationTest {
   private static GoogleCloudStorageOptions gcsOptions;
   private static RetryHttpInitializer httpRequestsInitializer;
   private static GoogleCloudStorageFileSystemIntegrationHelper gcsfsIHelper;
+
+  @Rule public TestName name = new TestName();
 
   @BeforeClass
   public static void before() throws Throwable {
@@ -314,6 +321,75 @@ public class GoogleCloudStorageFileSystemNewIntegrationTest {
                 /* pageToken= */ null));
 
     assertThat(fileInfos).hasSize(2);
+  }
+
+  @Test
+  public void renameFile_sequential() throws Exception {
+    TrackingHttpRequestInitializer gcsRequestsTracker =
+        new TrackingHttpRequestInitializer(httpRequestsInitializer);
+    GoogleCloudStorageFileSystem gcsFs = newGcsFs(newGcsFsOptions().build(), gcsRequestsTracker);
+
+    String bucketName = gcsfsIHelper.sharedBucketName1;
+    String dirObject = name.getMethodName() + "_" + UUID.randomUUID() + "/";
+
+    gcsfsIHelper.createObjectsWithSubdirs(bucketName, dirObject + "f1");
+
+    URI srcObjectUri = new URI("gs://" + bucketName + "/" + dirObject + "f1");
+    URI dstObjectUri = new URI("gs://" + bucketName + "/" + dirObject + "f2");
+
+    gcsFs.rename(srcObjectUri, dstObjectUri);
+    assertThat(gcsRequestsTracker.getAllRequestStrings())
+        .containsExactly(
+            getRequestString(bucketName, dirObject + "f1"),
+            getRequestString(bucketName, dirObject + "f2"),
+            getRequestString(bucketName, dirObject + "f2/"),
+            listRequestString(bucketName, false, dirObject + "f2/", 2, null),
+            getRequestString(bucketName, dirObject),
+            getRequestString(bucketName, dirObject + "f2/"),
+            listRequestString(bucketName, false, dirObject + "f2/", 2, null),
+            getRequestString(bucketName, dirObject),
+            copyRequestString(bucketName, dirObject + "f1", bucketName, dirObject + "f2", "copyTo"),
+            deleteRequestString(bucketName, dirObject + "f1", "token_10"),
+            postRequestString(bucketName, dirObject),
+            postRequestString(bucketName, dirObject));
+  }
+
+  @Test
+  public void renameFile_parallel() throws Exception {
+    GoogleCloudStorageFileSystemOptions gcsFsOptions =
+        newGcsFsOptions().setStatusParallelEnabled(true).build();
+
+    TrackingHttpRequestInitializer gcsRequestsTracker =
+        new TrackingHttpRequestInitializer(httpRequestsInitializer);
+    GoogleCloudStorageFileSystem gcsFs = newGcsFs(gcsFsOptions, gcsRequestsTracker);
+
+    String bucketName = gcsfsIHelper.sharedBucketName1;
+
+    String dirObject = name.getMethodName() + "_" + UUID.randomUUID() + "/";
+    gcsfsIHelper.createObjectsWithSubdirs(bucketName, dirObject + "f1");
+
+    URI srcObjectUri = new URI("gs://" + bucketName + "/" + dirObject + "f1");
+    URI dstObjectUri = new URI("gs://" + bucketName + "/" + dirObject + "f2");
+
+    gcsFs.rename(srcObjectUri, dstObjectUri);
+    assertThat(gcsRequestsTracker.getAllRequestStrings())
+        .containsExactly(
+            listRequestString(bucketName, false, dirObject + "f1/", 2, null),
+            getRequestString(bucketName, dirObject + "f1"),
+            getRequestString(bucketName, dirObject + "f1/"),
+            getRequestString(bucketName, dirObject + "f2"),
+            getRequestString(bucketName, dirObject + "f2/"),
+            listRequestString(bucketName, false, dirObject + "f2/", 2, null),
+            getRequestString(bucketName, dirObject),
+            listRequestString(bucketName, false, dirObject, 2, null),
+            getRequestString(bucketName, dirObject + "f2/"),
+            listRequestString(bucketName, false, dirObject + "f2/", 2, null),
+            getRequestString(bucketName, dirObject),
+            listRequestString(bucketName, false, dirObject, 2, null),
+            copyRequestString(bucketName, dirObject + "f1", bucketName, dirObject + "f2", "copyTo"),
+            deleteRequestString(bucketName, dirObject + "f1", "token_14"),
+            postRequestString(bucketName, dirObject),
+            postRequestString(bucketName, dirObject));
   }
 
   private GoogleCloudStorageFileSystemOptions.Builder newGcsFsOptions() {
