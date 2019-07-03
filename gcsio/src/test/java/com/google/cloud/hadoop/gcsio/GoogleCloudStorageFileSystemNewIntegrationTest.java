@@ -324,6 +324,56 @@ public class GoogleCloudStorageFileSystemNewIntegrationTest {
   }
 
   @Test
+  public void deleteFile_sequential() throws Exception {
+    TrackingHttpRequestInitializer gcsRequestsTracker =
+        new TrackingHttpRequestInitializer(httpRequestsInitializer);
+    GoogleCloudStorageFileSystem gcsFs = newGcsFs(newGcsFsOptions().build(), gcsRequestsTracker);
+
+    String bucketName = gcsfsIHelper.sharedBucketName1;
+    String dirObject = name.getMethodName() + "_" + UUID.randomUUID() + "/";
+
+    gcsfsIHelper.createObjectsWithSubdirs(bucketName, dirObject + "f1");
+
+    URI objectToBeDeletedUri = new URI("gs://" + bucketName + "/" + dirObject + "f1");
+
+    gcsFs.delete(objectToBeDeletedUri, false);
+    assertThat(gcsRequestsTracker.getAllRequestStrings())
+        .containsExactly(
+            getRequestString(bucketName, dirObject + "f1"),
+            getRequestString(bucketName, dirObject),
+            deleteRequestString(bucketName, dirObject + "f1", "token_2"),
+            postRequestString(bucketName, dirObject));
+  }
+
+  @Test
+  public void deleteFile_parallel() throws Exception {
+    GoogleCloudStorageFileSystemOptions gcsFsOptions =
+        newGcsFsOptions().setStatusParallelEnabled(true).build();
+
+    TrackingHttpRequestInitializer gcsRequestsTracker =
+        new TrackingHttpRequestInitializer(httpRequestsInitializer);
+    GoogleCloudStorageFileSystem gcsFs = newGcsFs(gcsFsOptions, gcsRequestsTracker);
+
+    String bucketName = gcsfsIHelper.sharedBucketName1;
+    String dirObject = name.getMethodName() + "_" + UUID.randomUUID() + "/";
+
+    gcsfsIHelper.createObjectsWithSubdirs(bucketName, dirObject + "f1");
+
+    URI objectToBeDeletedUri = new URI("gs://" + bucketName + "/" + dirObject + "f1");
+
+    gcsFs.delete(objectToBeDeletedUri, false);
+    assertThat(gcsRequestsTracker.getAllRequestStrings())
+        .containsExactly(
+            getRequestString(bucketName, dirObject + "f1"),
+            listRequestString(bucketName, false, dirObject + "f1/", 2, null),
+            getRequestString(bucketName, dirObject + "f1/"),
+            getRequestString(bucketName, dirObject),
+            listRequestString(bucketName, false, dirObject, 2, null),
+            deleteRequestString(bucketName, dirObject + "f1", "token_5"),
+            postRequestString(bucketName, dirObject));
+  }
+
+  @Test
   public void renameFile_sequential() throws Exception {
     TrackingHttpRequestInitializer gcsRequestsTracker =
         new TrackingHttpRequestInitializer(httpRequestsInitializer);
