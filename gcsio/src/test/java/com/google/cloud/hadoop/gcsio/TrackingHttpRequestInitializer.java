@@ -60,6 +60,9 @@ public class TrackingHttpRequestInitializer implements HttpRequestInitializer {
       "GET:https://www.googleapis.com/storage/v1/b/%s/o"
           + "?delimiter=/&includeTrailingDelimiter=%s&maxResults=%d%s&prefix=%s";
 
+  private static final String LIST_SIMPLE_REQUEST_FORMAT =
+      "GET:https://www.googleapis.com/storage/v1/b/%s/o?maxResults=%d&prefix=%s";
+
   private static final String BATCH_REQUEST_FORMAT =
       "POST:https://www.googleapis.com/batch/storage/v1";
 
@@ -192,6 +195,10 @@ public class TrackingHttpRequestInitializer implements HttpRequestInitializer {
         bucketName,
         URLEncoder.encode(object, UTF_8),
         evaluateGenerationMatchToken(generationMatchToken));
+  }
+
+  public static String listRequestString(String bucket, String prefix, int maxResults) {
+    return String.format(LIST_SIMPLE_REQUEST_FORMAT, bucket, maxResults, prefix);
   }
 
   public static String listRequestString(
